@@ -1,0 +1,166 @@
+doctype html
+html
+  head
+    title MSCompose
+    link(rel='stylesheet', type='text/css', href='main.css')
+    link(rel="stylesheet", href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css")
+    script(type="text/javascript", src="zepto.min.js")
+    script(type="text/javascript", src="zepto.dragswap.js")
+    script(type="text/javascript", src="main.js")
+  body
+    #dialog_holder
+      #dialog_addProject.dialog.green
+        h2 Add a Project
+        div
+          label(for="addProject_name") Project Name
+          input(type="text", style="width: 100%;", tabindex="40")#addProject_name
+          label(for="addProject_path") Project Directory
+          input(type="text", style="width: 100%;", tabindex="41")#addProject_path
+          span(style="color: #DC0000; display: none;")#addProject_error Invalid Path
+        .actions
+          button(tabindex="43")#addProject_cancel Cancel
+          button(tabindex="42")#addProject_save Save
+      #dialog_editProject.dialog.green
+        h2 Edit Project
+        div
+          label(for="editProject_name") Project Name
+          input(type="text", style="width: 100%;", tabindex="40")#editProject_name
+          label(for="editProject_path") Project Directory
+          input(type="text", style="width: 100%;", tabindex="41")#editProject_path
+          span(style="color: #DC0000; display: none;")#editProject_error Invalid Path
+        .actions
+          button(tabindex="43")#editProject_cancel Cancel
+          button(tabindex="42")#editProject_save Save
+      #dialog_createBuildTarget.dialog.green
+        h2 Create Build-Target
+        div
+          label(for="createBuildTarget_name") Name
+          input(type="text", style="width: 100%;", tabindex="40")#createBuildTarget_name
+          span(style="color: #DC0000; display: none;")#createBuildTarget_error Target name already in use!
+        .actions
+          button(tabindex="43")#createBuildTarget_cancel Cancel
+          button(tabindex="42")#createBuildTarget_save Save
+      #dialog_removeProject.dialog.red
+        h2 Remove Project
+        div
+          span This only removes the project from the list. <em>It does not delete the folder!</em>
+        .actions
+          button(tabindex="43")#removeProject_cancel Cancel
+          button(tabindex="42")#removeProject_save Remove Project
+      #dialog_removeBuildTarget.dialog.red
+        h2 Remove Build-Target
+        div
+          span Are you sure to remove the build-target <em id="removeBuildTarget_name"></em>?
+        .actions
+          button(tabindex="43")#removeBuildTarget_cancel Cancel
+          button(tabindex="42")#removeBuildTarget_save Continue
+      #dialog_log.dialog.green
+        h2 Log
+        div#logdata          
+        .actions
+          button(tabindex="42", onclick="close_dialog()") Ok
+    #left
+      .overflow-wrapper
+        .overflow-header
+          h1 Projects
+          span.link(onclick='add_project()')
+            span.fa.fa-plus
+            | Add Project
+          span.link(onclick='load_projects()')
+            span.fa.fa-refresh
+            | Refresh
+        #project_list.overflow-list
+          | Loading              
+    #right
+      #selectProject
+        div
+          h1 No Project selected
+          span Select a Project on the left or add a new one
+      #noConfig
+        div
+          h1 No Project Configuration found in this Location
+          button(onclick="create_config()") Create Project Settings
+      #invalidPath
+        div
+          h1 The path referenced in the project settings does not exist
+          button(onclick="remove_project(current_project_index)") Delete Project
+      #interface
+        div
+          #top
+            h2.inline Build-Targets:
+            select#buildtargetList
+            button(onclick="create_buildtarget()")
+              span.fa.fa-plus
+              | New
+            button(onclick="copy_buildtarget(current_build_target)")
+              span.fa.fa-copy
+              | Copy
+            button(onclick="remove_buildtarget(current_build_target)")
+              span.fa.fa-times
+              | Delete
+            #projectActions
+                button(onclick="show_log()")
+                  span.fa.fa-file-text-o
+                  | Show Log
+                button(onclick="clear_cache()")
+                  span.fa.fa-trash-o
+                  | Clear Cache
+                //- button(onclick="open_directory()")
+                  span.fa.fa-folder-open-o
+                  | Open Directory
+          #main
+            #content1.content
+              .overflow-wrapper
+                .overflow-header
+                  h1 Selected Source Files
+                  p Arrange them by drag and drop to match dependencies.
+                .overflow-list
+                  ul#sourcefileList
+            #content2.content
+              .overflow-wrapper
+                .overflow-header
+                  h1 Local Files
+                  p
+                    span Select files to include in the building-process                  
+                  p
+                    span Filter 
+                    input(type="text", style="width: 70%;", value="*.Script.txt")#treefilter
+                  p
+                    span(onclick="reload_tree(current_project.path)").link
+                      span.fa.fa-refresh
+                      | Reload local files
+                .overflow-list
+                  #treeview
+          #bottom
+            .overflow-wrapper
+              .overflow-header(style="padding-bottom: 0;")
+                h1 Settings
+              .overflow-list
+                table(width="100%")#settings_layout
+                  tr
+                    td
+                      div
+                        input(type="checkbox", onchange="update_settings(this)")#settings_compress
+                        label(for="settings_compress").withInfo Minimize output
+                          label.info Output will be stripped of unnecessary whitespaces.
+                      div
+                        label(for="settings_outputfile") Outputfile:
+                        br
+                        input(type="text", style="width: 90%;", onchange="update_settings(this)")#settings_outputfile
+                    td
+                      div
+                        input(type="checkbox", onchange="update_settings(this)")#settings_asXML
+                        label(for="settings_asXML").withInfo Generate XML file
+                          label.info Will wrap the ManiaScript in a <em>&lt;script&gt;</em> tag and can be directly included via <em>&lt;include&gt;</em>.
+                      div
+                        label(for="settings_xmlfile") XML-Outputfile:
+                        br
+                        input(type="text", style="width: 90%;", onchange="update_settings(this)")#settings_xmlfile
+                    td
+                      button(onclick="open_directory()")
+                        span.fa.fa-folder-open-o
+                        | Open Directory
+                      button(onclick="build()").big#btnBuild
+                        span.fa.fa-play
+                        | Build
+

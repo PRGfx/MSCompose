@@ -1,0 +1,9 @@
+logs/
+.jshintrc
+*.html
+*.css
+*.pyc
+*.cfg
+*.sublime-workspace
+*.sublime-project
+projects.json
