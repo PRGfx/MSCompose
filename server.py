@@ -293,6 +293,7 @@ def usage():
     print('--open      Open a browser window')
 
 if __name__ == "__main__":
+    os.chdir(os.path.dirname(os.path.realpath(__file__)))
     logging.getLogger('requests').setLevel(logging.WARNING)
     logfile = 'logs/' + datetime.datetime.now().strftime('%Y%m%d_%H%M%S')+'.log'
     if not os.path.isdir('logs'):
