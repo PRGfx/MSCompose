@@ -51,9 +51,9 @@ def merge_config(config):
         default ones.
     """
     default = get_default_config()
-    for key in default.default:
+    for key in default["default"]:
         if key not in config:
-            config.key = default.default.key
+            config[key] = default["default"][key]
     return config
 
 
@@ -121,7 +121,7 @@ class Cache(object):
                 pass
 
 
-ParserState = enum(Beginning=0, Base=1, Constraint=2, Function=3, FunctionStart=4, LabelInsert=5, MultilineComment=6)
+ParserState = enum(Beginning=0, Base=1, Constraint=2, Function=3, FunctionStart=4, LabelInsert=5, MultilineComment=6, Main=7)
 
 
 class MSFunction(object):
@@ -185,6 +185,7 @@ class MSComposer(object):
         self.global_vars = []
         self.functions = []
         self.labels = []
+        self.mainBody = ""
         self.cache = Cache(root_dir)
 
     def save(self):
@@ -225,6 +226,7 @@ class MSComposer(object):
         fnState = 0
         i = 0
         currentFn = {}
+        mainBody = "";
         while i < len(code):
             c = code[i]
             if state == ParserState.Beginning:
@@ -253,6 +255,9 @@ class MSComposer(object):
                 elif code[i:i + 2] == '/*':
                     state = ParserState.MultilineComment
                     i += 1
+                elif code[i:i + 4] == 'main':
+                    state = ParserState.Main
+                    i += 5
             elif state == ParserState.MultilineComment:
                 while i < len(code) and code[i:i + 2] != "*/":
                     i += 1
@@ -330,8 +335,32 @@ class MSComposer(object):
                         state = ParserState.Base
                     else:
                         currentFn["body"] += c
+            # TODO: Might need changes to capture only the body itself without enclosing braces
+            elif state == ParserState.Main:
+                isString = False
+                isString3 = False
+                stack = 1
+                string3Stack = 0
+                if c == '"':
+                    string3Stack += 1
+                    if not isString3:
+                        isString3 = string3Stack >= 3
+                    else:
+                        isString3 = string3Stack < 3
+                    isString = isString3 or (string3Stack == 1 and not isString)
+                else:
+                    string3Stack = 0
+                    if not isString:
+                        if c == '{':
+                            stack += 1
+                        if c == '}':
+                            stack -= 1
+                if stack < 0:
+                    state = ParserState.Base
+                else:
+                    mainBody += c
             i += 1
-        return globalVars, functions, labels, constraints
+        return globalVars, functions, labels, constraints, mainBody
 
     def process(self):
         """Kicks of the processing of all files mentioned in the buildconfig.
@@ -349,16 +378,23 @@ class MSComposer(object):
                     sourcecode = content.readlines()
                 line_count = 0
                 code_string = "".join(sourcecode[max(0, line_count - 1):])
-                (globalVars, functions, labels, constraints) = self._parse(code_string)
+                (globalVars, functions, labels, constraints, mainBody) = self._parse(code_string)
                 self.cache.put(source, (globalVars, functions, labels, constraints))
                 logging.debug("%s... done" % f)
             else:
                 logging.debug("%s found in cache" % f)
-                (globalVars, functions, labels, constraints) = cache_data
+                try:
+                    (globalVars, functions, labels, constraints, mainBody) = cache_data                    
+                except Exception:
+                    self.cache.clear()
+                    self.process()
+                    return
             self.global_vars += [x for x in globalVars if x]
             self.functions += functions
             self.labels += labels
             self.constraints += constraints
+            # TOOD: Will break ManiaScript syntax for multiple mainBody matches
+            self.mainBody += mainBody.strip()[1:-1]
 
         self.constraints.sort()
         # self.global_vars.sort(key=lambda s: s.split()[2])
@@ -371,6 +407,10 @@ class MSComposer(object):
         self.result += "\n".join(self.global_vars) + "\n"
         self.result += reduce(lambda o, e: o + str(e), self.labels, "")
         self.result += reduce(lambda o, e: o + str(e), self.functions, "")
+        # print(self.mainBody)
+        # mainBodies = filter(None, self.mainBody)
+        if self.mainBody:
+            self.result += "main() {\n" + self.mainBody + "}"
         self.save()
 
 
@@ -387,23 +427,24 @@ def main(args):
     if len(args) > 1:
         build_config = configs[args[1]]
         build_config = merge_config(build_config)
-        if not build_config.active:
+        if not build_config["active"]:
             logging.info("Build config '%s' skipped (Inactive)" % build_config)
             return
         logging.info("Processing build config '%s'" % build_config)
-        composer = MSComposer(configs[build_config], os.path.dirname(cfg))
+        composer = MSComposer(build_config, os.path.dirname(cfg))
         composer.process()
     else:
-        for build_config in configs:
+        for key, build_config in configs.items():
             build_config = merge_config(build_config)
-            if not build_config.active:
+            if not build_config["active"]:
                 logging.info("Build config '%s' skipped (Inactive)" % build_config)
                 continue
             logging.info("Processing build config '%s'" % build_config)
-            composer = MSComposer(configs[build_config], os.path.dirname(cfg))
+            composer = MSComposer(build_config, os.path.dirname(cfg))
             composer.process()
     logging.info("Processing complete!")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format='[%(asctime)s][%(levelname)s] %(message)s')
     main(sys.argv[1:])
